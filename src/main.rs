@@ -15,7 +15,7 @@ fn main() {
 
     println!("{:?}", config);
 
-    let weights = Weights::weights_load("models/model.safetensors");
+   let weights = Weights::weights_load("models/model.safetensors");
     
-    
+    tokenizer();
 }
