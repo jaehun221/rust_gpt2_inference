@@ -26,9 +26,10 @@ pub fn layer_norm(input: &Array2<f32>, weight: &Array1<f32>, bias: &Array1<f32>,
 
 pub fn softmax(qk: Array2<f32>) -> Array2<f32> {
     
-    qk.fold_axis(Axis(1), f32::NEG_INFINITY, |&acc, &x| acc.max(x)); // 각 행의 가장 큰 값만 남기기
-    qk.mapv(|x| x.exp())
-
+    let max_value = qk.clone().fold_axis(Axis(1), f32::NEG_INFINITY, |&acc, &x| acc.max(x)); // 각 행의 가장 큰 값만 남기기
+    let qk = qk - (max_value.insert_axis(Axis(1)));
+    let sum = qk.exp().sum_axis(Axis(1)).insert_axis(Axis(1));
+    qk / sum
 }
 
 // pub fn gelu() {
