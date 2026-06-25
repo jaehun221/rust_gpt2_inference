@@ -1,26 +1,40 @@
+use std::num::IntErrorKind::Zero;
+
 use ndarray::{ Array1, Array2, Axis, s };
-use crate::{config::Config, structure::Mlp};
+use crate::{config::Config};
 
 
-pub fn attention(input: &Array2<f32>, weight: &Array2<f32>, bias: &Array1<f32>, config: &Config, mask: Array2<f32>) -> Array2<f32> {
+pub fn attention(input: &Array2<f32>, weight: &Array2<f32>, bias: &Array1<f32>, config: &Config, mask: &Array2<f32>) -> Array2<f32> {
     let n_embd = config.n_embd;
-    
+    let n_head = config.n_head;
+
     let qkv = input.dot(weight) + bias;
-    let qk = &qkv.slice(s![.., ..n_embd]).dot(&qkv.slice(s![.., n_embd..n_embd*2]).t());
-    let v = qkv.slice(s![.., n_embd * 2..]);
 
-    let qk = qk.mapv(|x| x/(n_embd as f32).sqrt());
+    let q = qkv.slice(s![.., ..n_embd]);
+    let k = qkv.slice(s![.., n_embd..n_embd*2]);
+    let v = qkv.slice(s![.., n_embd*2..]);
 
-    // for ((i, j), value) in qk.indexed_iter_mut() {
-    //     if j > i {
-    //         *value = -1e9_f32;
-    //     }
-    // }
-
-    let qk = qk + mask;
+    let head_dim = n_embd / n_head;
     
-    softmax(qk).dot(&v)
+    let mut attn_score = Array2::zeros((input.nrows(), n_embd));
 
+    for i in 0..n_head {
+        let q_h = q.slice(s![.., i*head_dim..(i+1)*head_dim]);
+        let k_h = k.slice(s![.., i*head_dim..(i+1)*head_dim]);
+        let v_h = v.slice(s![.., i*head_dim..(i+1)*head_dim]);
+
+        let qk_h = q_h.dot(&k_h.t()) / (head_dim as f32).sqrt();
+
+        let masked_qk_h = qk_h + mask;
+
+        let attn_weight = softmax(&masked_qk_h).dot(&v_h);
+        attn_score.slice_mut(s![.., i*head_dim..(i+1)*head_dim]).assign(&attn_weight);
+
+    }
+
+    
+    attn_score
+    
 }
 
 pub fn layer_norm(input: &Array2<f32>, weight: &Array1<f32>, bias: &Array1<f32>, config: &Config) -> Array2<f32> {
@@ -33,10 +47,10 @@ pub fn layer_norm(input: &Array2<f32>, weight: &Array1<f32>, bias: &Array1<f32>,
     (output * weight) + bias
 }
 
-pub fn softmax(qk: Array2<f32>) -> Array2<f32> {
+pub fn softmax(qk: &Array2<f32>) -> Array2<f32> {
     let max_value = qk.clone().fold_axis(Axis(1), f32::NEG_INFINITY, |&acc, &x| acc.max(x)); // 각 행의 가장 큰 값만 남김
-    let qk = (qk - max_value).mapv(|x| x.exp());
-    let sum = qk.exp().sum_axis(Axis(1)).insert_axis(Axis(1));
+    let qk = (qk - max_value.insert_axis(Axis(1))).mapv(|x| x.exp());
+    let sum = qk.sum_axis(Axis(1)).insert_axis(Axis(1));
 
     qk / sum
 }
@@ -51,5 +65,5 @@ pub fn gelu(input: &Array2<f32>) -> Array2<f32> {
 
 
 pub fn mlp(input: &Array2<f32>, w1: &Array2<f32>, w2: &Array2<f32>, b1: &Array1<f32>, b2: &Array1<f32>) -> Array2<f32> {
-    gelu(&(input.dot(w1) + b1)).dot(w2)+b2
+    gelu(&(input.dot(w1) + b1)).dot(w2) + b2
 }

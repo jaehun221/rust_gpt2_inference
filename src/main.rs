@@ -14,6 +14,6 @@ fn main() {
     println!("{:?}", config);
 
     let weights = Weights::weights_load("models/model.safetensors");
-    // weights.tensor_list();
-    println!("{:?}", weights.get_tensor1("h.7.mlp.c_proj.bias").shape());
+    weights.tensor_list();
+
 }
