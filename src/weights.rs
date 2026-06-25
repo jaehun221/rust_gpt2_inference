@@ -2,6 +2,7 @@ use std::fs::read;
 use safetensors::SafeTensors;
 use ndarray::{ Array1, Array2 };
 
+#[derive(Debug)]
 pub struct Weights {
     w: Vec<u8>,
 }

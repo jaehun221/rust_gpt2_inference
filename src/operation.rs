@@ -1,26 +1,26 @@
-use ndarray::{ Array, Array1, Array2, Axis, s };
-use serde::de::value;
-use crate::config::Config;
+use ndarray::{ Array1, Array2, Axis, s };
+use crate::{config::Config, structure::Mlp};
 
 
-pub fn Attention(input: &Array2<f32>, weight: &Array2<f32>, bias: &Array1<f32>, n_embd: &Config) -> Array2<f32> {
-    let n_embd = n_embd.n_embd;
+pub fn attention(input: &Array2<f32>, weight: &Array2<f32>, bias: &Array1<f32>, config: &Config, mask: Array2<f32>) -> Array2<f32> {
+    let n_embd = config.n_embd;
+    
     let qkv = input.dot(weight) + bias;
     let qk = &qkv.slice(s![.., ..n_embd]).dot(&qkv.slice(s![.., n_embd..n_embd*2]).t());
+    let v = qkv.slice(s![.., n_embd * 2..]);
 
-    let n_embd = n_embd as f32;
-    let mut  qk = qk.mapv(|x| x/n_embd.sqrt());
+    let qk = qk.mapv(|x| x/(n_embd as f32).sqrt());
 
-    for ((i, j), value) in qk.indexed_iter_mut() {
-        if j > i {
-            *value = -1e9_f32;
-        }
-    }
+    // for ((i, j), value) in qk.indexed_iter_mut() {
+    //     if j > i {
+    //         *value = -1e9_f32;
+    //     }
+    // }
 
-    softmax(qk)
-
+    let qk = qk + mask;
     
-    // TODO: masking 이후 softmax
+    softmax(qk).dot(&v)
+
 }
 
 pub fn layer_norm(input: &Array2<f32>, weight: &Array1<f32>, bias: &Array1<f32>, config: &Config) -> Array2<f32> {
@@ -35,7 +35,7 @@ pub fn layer_norm(input: &Array2<f32>, weight: &Array1<f32>, bias: &Array1<f32>,
 
 pub fn softmax(qk: Array2<f32>) -> Array2<f32> {
     let max_value = qk.clone().fold_axis(Axis(1), f32::NEG_INFINITY, |&acc, &x| acc.max(x)); // 각 행의 가장 큰 값만 남김
-    let qk = qk - (max_value.insert_axis(Axis(1)));
+    let qk = (qk - max_value).mapv(|x| x.exp());
     let sum = qk.exp().sum_axis(Axis(1)).insert_axis(Axis(1));
 
     qk / sum
@@ -49,7 +49,7 @@ pub fn gelu(input: &Array2<f32>) -> Array2<f32> {
     input.mapv(|x| 0.5 * x * (1.0 + (pi * (x + num * x * x * x)).tanh()))
 }
 
-pub fn mlp() {
 
+pub fn mlp(input: &Array2<f32>, w1: &Array2<f32>, w2: &Array2<f32>, b1: &Array1<f32>, b2: &Array1<f32>) -> Array2<f32> {
+    gelu(&(input.dot(w1) + b1)).dot(w2)+b2
 }
-
