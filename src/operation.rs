@@ -1,14 +1,12 @@
-use std::num::IntErrorKind::Zero;
-
 use ndarray::{ Array1, Array2, Axis, s };
-use crate::{config::Config};
+use crate::{ config::Config, structure::Attn };
 
 
-pub fn attention(input: &Array2<f32>, weight: &Array2<f32>, bias: &Array1<f32>, config: &Config, mask: &Array2<f32>) -> Array2<f32> {
+pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config, mask: &Array2<f32>) -> Array2<f32> {
     let n_embd = config.n_embd;
     let n_head = config.n_head;
 
-    let qkv = input.dot(weight) + bias;
+    let qkv = input.dot(&w.c_attn.weight) + &w.c_attn.bias;
 
     let q = qkv.slice(s![.., ..n_embd]);
     let k = qkv.slice(s![.., n_embd..n_embd*2]);
@@ -31,9 +29,9 @@ pub fn attention(input: &Array2<f32>, weight: &Array2<f32>, bias: &Array1<f32>, 
         attn_score.slice_mut(s![.., i*head_dim..(i+1)*head_dim]).assign(&attn_weight);
 
     }
-
     
-    attn_score
+    
+    attn_score.dot(&w.c_proj.weight) + &w.c_proj.bias
     
 }
 

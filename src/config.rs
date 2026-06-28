@@ -3,6 +3,7 @@ use serde::{ Deserialize };
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
+    pub n_layer: usize,
     pub layer_norm_epsilon: f32,
     pub n_embd: usize,
     pub n_head: usize,
