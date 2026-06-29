@@ -2,7 +2,7 @@ use ndarray::{ Array1, Array2, Axis, s };
 use crate::{ config::Config, structure::Attn };
 
 
-pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config, mask: &Array2<f32>) -> Array2<f32> {
+pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config) -> Array2<f32> {
     let n_embd = config.n_embd;
     let n_head = config.n_head;
 

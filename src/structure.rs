@@ -52,12 +52,16 @@ impl Gpt2 {
 
         let embd = token + position;
         
-        let weight = &self.block;
-        for i in 0..config.n_layer {
-            layer_norm(input, weight, bias, config)
-        };
         
-    } 
+        for i in 0..config.n_layer {
+            let w = &self.block[i];
+            layer_norm(&embd, &w.ln1.weight, &w.ln1.bias, config);
+            attention(&embd, &w.attn, config, mask);
+            layer_norm(&embd, &w.ln2.weight, &w.ln2.bias, config);
+            mlp(&embd, &w.mlp.c_fc.weight,&w.mlp.c_proj.weight, &w.mlp.c_fc.bias, &w.mlp.c_proj.bias);
+        };
+    
+    }
 }
 
 pub struct Block {
