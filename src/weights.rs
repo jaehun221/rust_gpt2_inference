@@ -42,7 +42,8 @@ impl Weights {
         let mut t_list = tensors.names();
         t_list.sort();
         for i in t_list {
-            println!("{}", i);
+            let tensor = tensors.tensor(i).unwrap();
+            println!("{}: {:?}", i, tensor.shape());
         }
     }
 

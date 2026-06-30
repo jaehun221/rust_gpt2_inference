@@ -1,4 +1,4 @@
-use crate::{config::Config, tokenizer::tokenizer, weights::Weights};
+use crate::{config::Config, tokenizer::encode, weights::Weights};
 use std::fs;
 
 mod config;
@@ -14,6 +14,23 @@ fn main() {
     println!("{:?}", config);
 
     let weights = Weights::weights_load("models/model.safetensors");
-    weights.tensor_list();
 
+
+    let mut token = encode("Hello");
+    let max_token= 20;
+
+    let gpt2 = structure::Gpt2::from_weight(&weights, &config);
+
+    for i in 0..max_token {
+        let next = gpt2.generate(&token, &config);
+
+        if next == 50256 {
+            break;
+        }
+
+        token.push(next);
+    }
+
+    let text = tokenizer::decode(&token);
+    println!("{}", text);
 }

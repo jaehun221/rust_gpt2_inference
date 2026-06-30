@@ -1,5 +1,5 @@
 use ndarray::{ Array1, Array2, Axis, s };
-use crate::{ config::Config, weights::Weights, operation::{attention, layer_norm, softmax, mlp} };
+use crate::{ config::Config, weights::Weights, operation::{attention, layer_norm, mlp} };
 
 
 pub struct Gpt2 {
@@ -10,7 +10,7 @@ pub struct Gpt2 {
 }
 
 impl Gpt2 {
-    fn from_weight(w: &Weights, config: Config) -> Gpt2 {
+    pub fn from_weight(w: &Weights, config: &Config) -> Gpt2 {
         let mut blocks: Vec<Block> = Vec::new();
         for i in 0..config.n_layer {
             blocks.push(
@@ -41,7 +41,7 @@ impl Gpt2 {
 
     }
 
-    fn generate(&self, input: &Vec<usize>, config: &Config) -> Vec<usize> {
+    pub fn generate(&self, input: &Vec<usize>, config: &Config) -> usize {
         let wte = &self.wte;
         let wpe = &self.wpe;
 
@@ -50,16 +50,32 @@ impl Gpt2 {
         let token = wte.select(Axis(0), &input);
         let position = wpe.slice(s![0..input_len, ..]);
 
-        let embd = token + position;
+        let mut embd = token + position;
         
         
         for i in 0..config.n_layer {
             let w = &self.block[i];
-            layer_norm(&embd, &w.ln1.weight, &w.ln1.bias, config);
-            attention(&embd, &w.attn, config, mask);
-            layer_norm(&embd, &w.ln2.weight, &w.ln2.bias, config);
-            mlp(&embd, &w.mlp.c_fc.weight,&w.mlp.c_proj.weight, &w.mlp.c_fc.bias, &w.mlp.c_proj.bias);
+            let ln1 = layer_norm(&embd, &w.ln1.weight, &w.ln1.bias, config);
+            embd = embd + attention(&ln1, &w.attn, config);
+            let ln2 = layer_norm(&embd, &w.ln2.weight, &w.ln2.bias, config);
+            embd = embd + mlp(&ln2, &w.mlp);
+            
         };
+
+        let embd = layer_norm(&embd, &self.ln_f.weight, &self.ln_f.bias, config);
+
+        let logits = embd.dot(&wte.t());
+
+        let last_logit = logits.row(logits.nrows() -1);
+
+        let next_token = last_logit
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .map(|(idx, _)| idx)
+            .unwrap();
+
+        next_token
     
     }
 }
@@ -87,8 +103,8 @@ pub struct Ln {
 }
 
 pub struct Mlp {
-    c_fc: Linear,
-    c_proj: Linear,
+    pub c_fc: Linear,
+    pub c_proj: Linear,
 }
 
 pub struct Attn {
@@ -96,3 +112,7 @@ pub struct Attn {
     pub c_proj: Linear,
 }
 
+pub struct KVCache {
+    pub k: Array2<f32>,
+    pub v: Array2<f32>,
+}

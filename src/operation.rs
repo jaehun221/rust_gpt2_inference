@@ -1,8 +1,8 @@
 use ndarray::{ Array1, Array2, Axis, s };
-use crate::{ config::Config, structure::Attn };
+use crate::{ config::Config, structure::{Attn, KVCache, Mlp} };
 
 
-pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config) -> Array2<f32> {
+pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config, cache: &KVCacheCache) -> Array2<f32> {
     let n_embd = config.n_embd;
     let n_head = config.n_head;
 
@@ -16,6 +16,13 @@ pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config) -> Array2<f32> 
     
     let mut attn_score = Array2::zeros((input.nrows(), n_embd));
 
+    let mut mask = Array2::<f32>::zeros((input.nrows(), input.nrows()));
+    for i in 0..input.nrows() {
+        for j in (i + 1)..input.nrows() {
+            mask[[i, j]] = f32::NEG_INFINITY;
+        }
+    }
+
     for i in 0..n_head {
         let q_h = q.slice(s![.., i*head_dim..(i+1)*head_dim]);
         let k_h = k.slice(s![.., i*head_dim..(i+1)*head_dim]);
@@ -23,7 +30,7 @@ pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config) -> Array2<f32> 
 
         let qk_h = q_h.dot(&k_h.t()) / (head_dim as f32).sqrt();
 
-        let masked_qk_h = qk_h + mask;
+        let masked_qk_h = qk_h + &mask;
 
         let attn_weight = softmax(&masked_qk_h).dot(&v_h);
         attn_score.slice_mut(s![.., i*head_dim..(i+1)*head_dim]).assign(&attn_weight);
@@ -62,6 +69,6 @@ pub fn gelu(input: &Array2<f32>) -> Array2<f32> {
 }
 
 
-pub fn mlp(input: &Array2<f32>, w1: &Array2<f32>, w2: &Array2<f32>, b1: &Array1<f32>, b2: &Array1<f32>) -> Array2<f32> {
-    gelu(&(input.dot(w1) + b1)).dot(w2) + b2
+pub fn mlp(input: &Array2<f32>, w: &Mlp) -> Array2<f32> {
+    gelu(&(input.dot(&w.c_fc.weight) + &w.c_fc.bias)).dot(&w.c_proj.weight) + &w.c_proj.bias
 }
