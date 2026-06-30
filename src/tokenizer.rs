@@ -13,5 +13,6 @@ pub fn encode(input: &str) -> Vec<usize> {
 pub fn decode(ids: &Vec<usize>) -> String {
     let tokenizer = Tokenizer::from_file("models/tokenizer.json").expect("tokenizer.json not found");
     let ids_u32: Vec<u32> = ids.iter().map(|&x| x as u32).collect();
+    
     tokenizer.decode(&ids_u32, true).expect("decode err")
 }

@@ -36,15 +36,15 @@ impl Weights {
         Array2::from_shape_vec((tensor.shape()[0], tensor.shape()[1]), v).expect("Array2 shape err")
     }
 
-    pub fn tensor_list(&self) {
-        let tensors = SafeTensors::deserialize(&self.w).expect("deserialize failed");
+    // pub fn tensor_list(&self) {
+    //     let tensors = SafeTensors::deserialize(&self.w).expect("deserialize failed");
         
-        let mut t_list = tensors.names();
-        t_list.sort();
-        for i in t_list {
-            let tensor = tensors.tensor(i).unwrap();
-            println!("{}: {:?}", i, tensor.shape());
-        }
-    }
+    //     let mut t_list = tensors.names();
+    //     t_list.sort();
+    //     for i in t_list {
+    //         let tensor = tensors.tensor(i).unwrap();
+    //         println!("{}: {:?}", i, tensor.shape());
+    //     }
+    // }
 
 }

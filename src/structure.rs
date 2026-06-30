@@ -41,22 +41,21 @@ impl Gpt2 {
 
     }
 
-    pub fn generate(&self, input: &Vec<usize>, config: &Config) -> usize {
+    pub fn generate(&self, input: &Vec<usize>, config: &Config, caches: &mut Vec<KVCache>) -> usize {
         let wte = &self.wte;
         let wpe = &self.wpe;
 
         let input_len = input.len();
 
         let token = wte.select(Axis(0), &input);
-        let position = wpe.slice(s![0..input_len, ..]);
+        let position = wpe.slice(s![caches[0].k.nrows()..caches[0].k.nrows() + input_len, ..]);
 
         let mut embd = token + position;
-        
         
         for i in 0..config.n_layer {
             let w = &self.block[i];
             let ln1 = layer_norm(&embd, &w.ln1.weight, &w.ln1.bias, config);
-            embd = embd + attention(&ln1, &w.attn, config);
+            embd = embd + attention(&ln1, &w.attn, config, &mut caches[i]);
             let ln2 = layer_norm(&embd, &w.ln2.weight, &w.ln2.bias, config);
             embd = embd + mlp(&ln2, &w.mlp);
             
@@ -92,11 +91,6 @@ pub struct Linear {
     pub bias: Array1<f32>,
 }
 
-pub struct Embd {
-    wte: Array2<f32>,
-    wpe: Array2<f32>,
-}
-
 pub struct Ln {
     weight: Array1<f32>,
     bias: Array1<f32>,
@@ -115,4 +109,17 @@ pub struct Attn {
 pub struct KVCache {
     pub k: Array2<f32>,
     pub v: Array2<f32>,
+}
+
+impl KVCache {
+    pub fn cache_set(config: &Config) -> Vec<KVCache> {
+        let caches: Vec<KVCache> = (0..config.n_layer)
+                .map(|_| KVCache {
+                k: Array2::zeros((0, config.n_embd)),
+                v: Array2::zeros((0, config.n_embd)),
+            })
+            .collect();
+
+        caches
+    }
 }
