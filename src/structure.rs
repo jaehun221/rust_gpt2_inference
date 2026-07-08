@@ -1,5 +1,5 @@
 use ndarray::{ Array1, Array2, Axis, s };
-use crate::{ config::Config, weights::Weights, operation::{attention, layer_norm, mlp} };
+use crate::{ config::Config, weights::Weights, operation::{ attention, layer_norm, mlp } };
 
 
 pub struct Gpt2 {
@@ -29,7 +29,7 @@ impl Gpt2 {
             )
         }
 
-        Gpt2 { 
+        Gpt2 {
             wte: w.get_tensor2("wte.weight"), 
             wpe: w.get_tensor2("wpe.weight"),
             block: blocks,
@@ -67,12 +67,16 @@ impl Gpt2 {
 
         let last_logit = logits.row(logits.nrows() -1);
 
-        let next_token = last_logit
-            .iter()
-            .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-            .map(|(idx, _)| idx)
-            .unwrap();
+        let mut max_val = f32::NEG_INFINITY;
+        let mut next_token = 0;
+
+        // argmax() greedy
+        for (idx, &val) in last_logit.iter().enumerate() {
+            if val > max_val {
+                max_val = val;
+                next_token = idx;
+            }
+        }
 
         next_token
     

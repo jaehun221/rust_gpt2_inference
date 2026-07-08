@@ -1,5 +1,5 @@
-use ndarray::{ Array1, Array2, Axis, s };
-use crate::{ config::Config, structure::{Attn, KVCache, Mlp} };
+use ndarray::{ Array1, Array2, Axis, s, concatenate };
+use crate::{ config::Config, structure::{ Attn, KVCache, Mlp } };
 
 
 pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config, cache: &mut KVCache) -> Array2<f32> {
@@ -12,10 +12,8 @@ pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config, cache: &mut KVC
     let k = qkv.slice(s![.., n_embd..n_embd*2]);
     let v = qkv.slice(s![.., n_embd*2..]);
 
-    cache.k = ndarray::concatenate(Axis(0), &[cache.k.view(), k.view()])
-        .expect("k concat failed");
-    cache.v = ndarray::concatenate(Axis(0), &[cache.v.view(), v.view()])
-        .expect("v concat failed");
+    cache.k = concatenate(Axis(0), &[cache.k.view(), k.view()]).expect("k concat failed");
+    cache.v = concatenate(Axis(0), &[cache.v.view(), v.view()]).expect("v concat failed");
 
 
     let k = &cache.k;
@@ -24,9 +22,7 @@ pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config, cache: &mut KVC
     let head_dim = n_embd / n_head;
     
     let mut attn_score = Array2::zeros((input.nrows(), n_embd));
-
     
-
     for i in 0..n_head {
         let q_h = q.slice(s![.., i*head_dim..(i+1)*head_dim]);
         let k_h = k.slice(s![.., i*head_dim..(i+1)*head_dim]);
@@ -34,13 +30,10 @@ pub fn attention(input: &Array2<f32>, w: &Attn, config: &Config, cache: &mut KVC
 
         let qk_h = q_h.dot(&k_h.t()) / (head_dim as f32).sqrt();
 
-        let masked_qk_h = qk_h;
-
-        let attn_weight = softmax(&masked_qk_h).dot(&v_h);
+        let attn_weight = softmax(&qk_h).dot(&v_h);
         attn_score.slice_mut(s![.., i*head_dim..(i+1)*head_dim]).assign(&attn_weight);
 
     }
-    
     
     attn_score.dot(&w.c_proj.weight) + &w.c_proj.bias
     

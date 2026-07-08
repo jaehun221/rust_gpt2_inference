@@ -1,4 +1,4 @@
-use crate::{config::Config, structure::KVCache, tokenizer::encode, weights::Weights};
+use crate::{ config::Config, structure::KVCache, tokenizer::encode, weights::Weights };
 use std::fs;
 
 mod config;
@@ -11,12 +11,9 @@ fn main() {
     let config_path = fs::read_to_string("models/config.json").expect("models/config.json read err");
     let config: Config = Config::set_json(&config_path);
 
-    println!("{:?}", config);
-
     let weights = Weights::weights_load("models/model.safetensors");
 
-
-    let mut token = encode("Hello");
+    let mut token = encode("My name is");
     let max_token= 20;
 
     let gpt2 = structure::Gpt2::from_weight(&weights, &config);
@@ -34,5 +31,6 @@ fn main() {
     }
 
     let text = tokenizer::decode(&token);
+
     println!("{}", text);
 }
